@@ -193,26 +193,7 @@ func main() {
 		}
 
 		if opt == "put" {
-			if len(data) == 0 && len(buf) == 0 {
-				rw.Write([]byte("HTTPMQ_PUT_ERROR"))
-				return
-			}
-
-			putnamechan <- name
-			putpos := <-putposchan
-
-			if putpos != "0" {
-				queueName := name + putpos
-				if data != "" {
-					db.Put([]byte(queueName), []byte(data), nil)
-				} else if len(buf) > 0 {
-					db.Put([]byte(queueName), buf, nil)
-				}
-				rw.Header().Set("Pos", putpos)
-				rw.Write([]byte("HTTPMQ_PUT_OK"))
-			} else {
-				rw.Write([]byte("HTTPMQ_PUT_END"))
-			}
+			handlePutOpt(name, data, buf, rw, putnamechan, putposchan)
 		} else if opt == "get" {
 			getnamechan <- name
 			getpos := <-getposchan
@@ -281,4 +262,27 @@ func main() {
 	})
 
 	log.Fatal(http.ListenAndServe(*ip+":"+*port, m))
+}
+
+func handlePutOpt(name string, data string, buf []byte, rw http.ResponseWriter, putChan chan string, putPosChan chan string) {
+	if len(data) == 0 && len(buf) == 0 {
+		rw.Write([]byte("HTTPMQ_PUT_ERROR"))
+		return
+	}
+
+	putChan <- name
+	putpos := <-putPosChan
+
+	if putpos != "0" {
+		queueName := name + putpos
+		if data != "" {
+			db.Put([]byte(queueName), []byte(data), nil)
+		} else if len(buf) > 0 {
+			db.Put([]byte(queueName), buf, nil)
+		}
+		rw.Header().Set("Pos", putpos)
+		rw.Write([]byte("HTTPMQ_PUT_OK"))
+	} else {
+		rw.Write([]byte("HTTPMQ_PUT_END"))
+	}
 }
