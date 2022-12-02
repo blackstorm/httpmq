@@ -31,6 +31,13 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
+// HTTPMQ response codes
+const HTTPMQ_AUTH_FAILED_CODE = "HTTPMQ_AUTH_FAILED"
+const HTTPMQ_OK_CODE = "HTTPMQ_OK"
+const HTTPMQ_END_CODE = "HTTPMQ_END"
+const HTTPMQ_ERROR_CODE = "HTTPMQ_ERROR"
+const HTTPMQ_MAXQUEUE_CANCLE_CODE = "HTTPMQ_MAXQUEUE_CANCLE"
+
 // VERSION of httpmq
 const VERSION = "0.5"
 
@@ -164,7 +171,7 @@ func main() {
 		charset := string(r.FormValue("charset"))
 
 		if *defaultAuth != "" && *defaultAuth != auth {
-			rw.Write([]byte("HTTPMQ_AUTH_FAILED"))
+			rw.Write([]byte(HTTPMQ_AUTH_FAILED_CODE))
 			return
 		}
 
@@ -181,7 +188,7 @@ func main() {
 		}
 
 		if len(name) == 0 || len(opt) == 0 {
-			rw.Write([]byte("HTTPMQ_ERROR"))
+			rw.Write([]byte(HTTPMQ_ERROR_CODE))
 			return
 		}
 
@@ -199,7 +206,7 @@ func main() {
 			getpos := <-getposchan
 
 			if getpos == "0" {
-				rw.Write([]byte("HTTPMQ_GET_END"))
+				rw.Write([]byte(HTTPMQ_END_CODE))
 			} else {
 				queueName := name + getpos
 				v, err := db.Get([]byte(queueName), nil)
@@ -207,7 +214,7 @@ func main() {
 					rw.Header().Set("Pos", getpos)
 					rw.Write(v)
 				} else {
-					rw.Write([]byte("HTTPMQ_GET_ERROR"))
+					rw.Write([]byte(HTTPMQ_ERROR_CODE))
 				}
 			}
 		} else if opt == "status" {
@@ -242,21 +249,21 @@ func main() {
 			if err == nil {
 				rw.Write([]byte(v))
 			} else {
-				rw.Write([]byte("HTTPMQ_VIEW_ERROR"))
+				rw.Write([]byte(HTTPMQ_ERROR_CODE))
 			}
 		} else if opt == "reset" {
 			maxqueue := strconv.Itoa(*defaultMaxqueue)
 			db.Put([]byte(name+".maxqueue"), []byte(maxqueue), sync)
 			db.Put([]byte(name+".putpos"), []byte("0"), sync)
 			db.Put([]byte(name+".getpos"), []byte("0"), sync)
-			rw.Write([]byte("HTTPMQ_RESET_OK"))
+			rw.Write([]byte(HTTPMQ_OK_CODE))
 		} else if opt == "maxqueue" {
 			maxqueue, _ := strconv.Atoi(num)
 			if maxqueue > 0 && maxqueue <= 10000000 {
 				db.Put([]byte(name+".maxqueue"), []byte(num), sync)
-				rw.Write([]byte("HTTPMQ_MAXQUEUE_OK"))
+				rw.Write([]byte(HTTPMQ_OK_CODE))
 			} else {
-				rw.Write([]byte("HTTPMQ_MAXQUEUE_CANCLE"))
+				rw.Write([]byte(HTTPMQ_MAXQUEUE_CANCLE_CODE))
 			}
 		}
 	})
@@ -266,7 +273,7 @@ func main() {
 
 func handlePutOpt(name string, data string, buf []byte, rw http.ResponseWriter, putChan chan string, putPosChan chan string) {
 	if len(data) == 0 && len(buf) == 0 {
-		rw.Write([]byte("HTTPMQ_PUT_ERROR"))
+		rw.Write([]byte(HTTPMQ_ERROR_CODE))
 		return
 	}
 
@@ -281,8 +288,8 @@ func handlePutOpt(name string, data string, buf []byte, rw http.ResponseWriter, 
 			db.Put([]byte(queueName), buf, nil)
 		}
 		rw.Header().Set("Pos", putpos)
-		rw.Write([]byte("HTTPMQ_PUT_OK"))
+		rw.Write([]byte(HTTPMQ_OK_CODE))
 	} else {
-		rw.Write([]byte("HTTPMQ_PUT_END"))
+		rw.Write([]byte(HTTPMQ_END_CODE))
 	}
 }
